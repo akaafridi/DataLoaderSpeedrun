@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PyTorch DataLoader Optimization</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .benchmark-results {
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        .code-block {
+            background-color: var(--bs-dark);
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            overflow-x: auto;
+        }
+        .chart-container {
+            height: 300px;
+            margin: 20px 0;
+        }
+        .optimization-section {
+            border-left: 3px solid var(--bs-primary);
+            padding-left: 15px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body data-bs-theme="dark">
+    <div class="container mt-4">
+        <h1 class="mb-4">PyTorch DataLoader I/O Optimization</h1>
+        
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Benchmark Controls</h2>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" class="mb-4">
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <label for="num_samples" class="form-label">Number of Samples:</label>
+                                    <input type="number" class="form-control" id="num_samples" name="num_samples" value="5000" min="1000" max="20000">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="feature_dim" class="form-label">Feature Dimension:</label>
+                                    <input type="number" class="form-control" id="feature_dim" name="feature_dim" value="100" min="10" max="1000">
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="num_epochs" class="form-label">Number of Epochs:</label>
+                                    <input type="number" class="form-control" id="num_epochs" name="num_epochs" value="3" min="1" max="10">
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="batch_size" class="form-label">Batch Size:</label>
+                                    <select class="form-select" id="batch_size" name="batch_size">
+                                        <option value="32">32</option>
+                                        <option value="64" selected>64</option>
+                                        <option value="128">128</option>
+                                        <option value="256">256</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="num_workers" class="form-label">Number of Workers:</label>
+                                    <select class="form-select" id="num_workers" name="num_workers">
+                                        <option value="0">0</option>
+                                        <option value="1">1</option>
+                                        <option value="2" selected>2</option>
+                                        <option value="4">4</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Run Benchmark</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        {% if results %}
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Benchmark Results</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="benchmark-results">
+                            <h3>Results Summary</h3>
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Metric</th>
+                                        <th>Baseline</th>
+                                        <th>CachedDataset</th>
+                                        <th>C++ Extension</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Time (ms)</td>
+                                        <td>{{ results.baseline.time }}</td>
+                                        <td>{{ results.cached.time }}</td>
+                                        <td>{{ results.cpp.time }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Items/sec</td>
+                                        <td>{{ results.baseline.items_per_second }}</td>
+                                        <td>{{ results.cached.items_per_second }}</td>
+                                        <td>{{ results.cpp.items_per_second }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Ms/batch</td>
+                                        <td>{{ results.baseline.ms_per_batch }}</td>
+                                        <td>{{ results.cached.ms_per_batch }}</td>
+                                        <td>{{ results.cpp.ms_per_batch }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            
+                            <div class="row mt-4">
+                                <div class="col-md-6">
+                                    <h4>CachedDataset Performance</h4>
+                                    <p><strong>Speedup:</strong> {{ results.cached_speedup }}x faster per batch</p>
+                                    <p><strong>Time Saved:</strong> {{ results.cached_time_saved }}ms per batch</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <h4>C++ Extension Performance</h4>
+                                    <p><strong>Speedup:</strong> {{ results.cpp_speedup }}x faster per batch</p>
+                                    <p><strong>Time Saved:</strong> {{ results.cpp_time_saved }}ms per batch</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Optimization Approaches</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="optimization-section">
+                            <h3>Baseline Implementation</h3>
+                            <p>
+                                The baseline implementation uses PyTorch's standard DataLoader with a simple Dataset class.
+                                Each batch fetch operation performs a tensor copy, which can introduce significant overhead.
+                            </p>
+                            <div class="code-block">
+                                <pre><code class="language-python">class BaselineDataset(Dataset):
+    def __init__(self, data):
+        self.data = data
+        
+    def __len__(self):
+        return len(self.data)
+        
+    def __getitem__(self, idx):
+        # Copy data when fetching items
+        return self.data[idx].clone()</code></pre>
+                            </div>
+                        </div>
+                        
+                        <div class="optimization-section">
+                            <h3>CachedDataset Optimization</h3>
+                            <p>
+                                The CachedDataset optimization preloads and pins all data in memory at initialization.
+                                This reduces I/O overhead during batch fetching and enables faster CPU-GPU transfers.
+                            </p>
+                            <div class="code-block">
+                                <pre><code class="language-python">class CachedDataset(Dataset):
+    def __init__(self, data, pin_memory=True):
+        self.cached_data = data.clone()
+        if pin_memory and torch.cuda.is_available():
+            self.cached_data = self.cached_data.pin_memory()
+            
+    def __getitem__(self, idx):
+        # Return a view of the cached data (avoids copy)
+        return self.cached_data[idx]</code></pre>
+                            </div>
+                        </div>
+                        
+                        <div class="optimization-section">
+                            <h3>C++ Extension (fastfetch)</h3>
+                            <p>
+                                The C++ extension uses pybind11 to implement a zero-copy tensor fetching operation.
+                                By bypassing Python's overhead and using PyTorch's C++ API directly, it can further
+                                reduce memory operations and improve performance.
+                            </p>
+                            <div class="code-block">
+                                <pre><code class="language-cpp">torch::Tensor fetch_tensor_zero_copy(torch::Tensor tensor_batch, int64_t index) {
+    // Simple error check
+    if (index < 0 || index >= tensor_batch.size(0)) {
+        throw std::runtime_error("Index out of bounds");
+    }
+    
+    // Return a view using select operation (no copy)
+    return tensor_batch.select(0, index);
+}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

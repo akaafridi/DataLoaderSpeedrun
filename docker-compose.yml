@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  benchmark:
+    build: .
+    volumes:
+      - ./results:/app/results
+    command: grok3-io-opt benchmark --multi-seed
+    environment:
+      - PYTHONUNBUFFERED=1
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 2G
+
+  webapp:
+    build: .
+    ports:
+      - "5000:5000"
+    command: gunicorn --bind 0.0.0.0:5000 --reuse-port --reload main:app
+    volumes:
+      - ./results:/app/results
+    environment:
+      - PYTHONUNBUFFERED=1
+      - FLASK_APP=main.py
+      - FLASK_ENV=production
+    depends_on:
+      - benchmark
+
+  perf-analysis:
+    build: .
+    privileged: true  # Required for perf tools
+    volumes:
+      - ./results:/app/results
+    command: >
+      bash -c "
+        cd /app &&
+        mkdir -p /app/results &&
+        perf record -g -o /app/results/profile_data.data grok3-io-opt profile --output /app/results/profile_results.txt --iterations 5 &&
+        perf report -i /app/results/profile_data.data > /app/results/perf_report.txt
+      "
+    depends_on:
+      - benchmark

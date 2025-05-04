@@ -1,0 +1,6 @@
+include LICENSE
+include README.md
+include CONTRIBUTING.md
+include requirements-docker.txt
+recursive-include grok3_io_opt/cpp_extension *.cpp *.h
+recursive-include tests *.py
