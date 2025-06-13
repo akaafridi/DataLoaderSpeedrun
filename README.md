@@ -1,4 +1,4 @@
-# Grok3 I/O Optimization for PyTorch DataLoader
+# I/O Optimization for PyTorch DataLoader
 
 A high-performance library that provides optimized data loading solutions for PyTorch. This library implements multiple optimization approaches to accelerate PyTorch's DataLoader while reducing memory usage.
 
